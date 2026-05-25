@@ -1,0 +1,24 @@
+# Copy this file to .dev.vars and fill in your real keys.
+# .dev.vars is gitignored — never commit real secrets.
+#
+# For production: set these via `wrangler secret put <KEY>`
+
+# ── Cloudflare ────────────────────────────────────────────────────────────────
+# Your Cloudflare account ID (visible in dashboard URL or `wrangler whoami`)
+CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id_here
+
+# AI Gateway slug — visible in dash.cloudflare.com → AI → AI Gateway
+CLOUDFLARE_GATEWAY_ID=default
+
+# API token with "Account > Workers AI > Edit" permission
+# Create at: https://dash.cloudflare.com/profile/api-tokens
+CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
+
+# ── Firecrawl ─────────────────────────────────────────────────────────────────
+FIRECRAWL_API_KEY=your_firecrawl_api_key_here
+
+# ── X / Twitter ───────────────────────────────────────────────────────────────
+# OAuth 2.0 user-context access token — generated in X Developer Portal:
+# App → Keys & Tokens → Access Token (Generate)
+# ⚠️  Expires after ~2 hours — regenerate when expired
+TWITTER_ACCESS_TOKEN=your_twitter_access_token_here

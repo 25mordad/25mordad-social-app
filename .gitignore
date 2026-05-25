@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.wrangler/
+
+# Local secrets — never commit these files
+.dev.vars
+wrangler.toml

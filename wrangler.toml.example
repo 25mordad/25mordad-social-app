@@ -1,0 +1,19 @@
+name = "25mordad-social-app"
+main = "src/index.ts"
+compatibility_date = "2025-05-25"
+account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+
+# ── Cloudflare AI binding (claude-sonnet-4) ──────────────────────────────────
+[ai]
+binding = "AI"
+
+# ── D1 Database ───────────────────────────────────────────────────────────────
+# Run `npm run db:create` to create, then paste the database_id below
+[[d1_databases]]
+binding = "DB"
+database_name = "social-app-db"
+database_id = "YOUR_D1_DATABASE_ID"
+
+# ── Cron: every day at 05:30 UTC = 09:00 Tehran (UTC+3:30) ───────────────────
+[triggers]
+crons = ["30 5 * * *"]
