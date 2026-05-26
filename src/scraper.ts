@@ -39,11 +39,15 @@ async function firecrawlScrape(
  * that matches the known post URL pattern (/PanorAIma/<slug>/).
  */
 export async function getLatestPostUrl(env: Env): Promise<string> {
+  console.log(`[scraper] Scraping index page: ${SITE_INDEX_URL}`);
   const result = await firecrawlScrape(env.FIRECRAWL_API_KEY, SITE_INDEX_URL);
 
   if (!result.success || !result.data?.markdown) {
+    console.error(`[scraper] Index scrape failed: ${result.error}`);
     throw new Error(`Failed to scrape index page: ${result.error}`);
   }
+
+  console.log(`[scraper] Index page scraped (${result.data.markdown.length} chars)`);
 
   // Extract Farsi-only links from markdown: [text](url)
   // Farsi posts always end with the "-fa" slug suffix (e.g. /some-post-fa or /some-post-fa/)
@@ -51,14 +55,19 @@ export async function getLatestPostUrl(env: Env): Promise<string> {
   const matches = [...result.data.markdown.matchAll(linkRegex)];
 
   if (matches.length === 0) {
+    console.error("[scraper] No Farsi post links found on the index page");
     throw new Error("No Farsi post links found on the index page (expected URLs ending in -fa)");
   }
+
+  console.log(`[scraper] Found ${matches.length} Farsi post link(s)`);
 
   // The index page lists posts newest-first — the first match is the latest Farsi post
   const latestUrl = matches[0][2];
 
   // Normalise: ensure trailing slash
-  return latestUrl.endsWith("/") ? latestUrl : `${latestUrl}/`;
+  const normalised = latestUrl.endsWith("/") ? latestUrl : `${latestUrl}/`;
+  console.log(`[scraper] Latest Farsi post: ${normalised}`);
+  return normalised;
 }
 
 /**
@@ -69,9 +78,11 @@ export async function scrapePostContent(
   env: Env,
   url: string
 ): Promise<{ title: string; content: string }> {
+  console.log(`[scraper] Scraping post content: ${url}`);
   const result = await firecrawlScrape(env.FIRECRAWL_API_KEY, url);
 
   if (!result.success || !result.data?.markdown) {
+    console.error(`[scraper] Post scrape failed for ${url}: ${result.error}`);
     throw new Error(`Failed to scrape post ${url}: ${result.error}`);
   }
 
@@ -79,6 +90,8 @@ export async function scrapePostContent(
     result.data.metadata.ogTitle ??
     result.data.metadata.title ??
     "بدون عنوان";
+
+  console.log(`[scraper] Post scraped — title: "${title}", content: ${result.data.markdown.length} chars`);
 
   return {
     title,

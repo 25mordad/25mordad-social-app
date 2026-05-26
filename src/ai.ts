@@ -138,6 +138,8 @@ export async function generateTweet(
   // Cloudflare AI Gateway → Anthropic
   const endpoint = `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${env.CLOUDFLARE_GATEWAY_ID}/anthropic/v1/messages`;
 
+  console.log(`[ai] Calling Claude — model: ${CLAUDE_MODEL}, theme: ${theme.key} (index ${input.themeIndex % TWEET_THEMES.length}), history: ${input.previousTweets.length} tweets`);
+
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -155,20 +157,29 @@ export async function generateTweet(
 
   if (!response.ok) {
     const body = await response.text();
+    console.error(`[ai] AI Gateway error ${response.status}: ${body}`);
     throw new Error(`Cloudflare AI Gateway error ${response.status}: ${body}`);
   }
 
   const data = await response.json<{
     content: Array<{ type: string; text: string }>;
+    usage?: { input_tokens: number; output_tokens: number };
   }>();
+
+  if (data.usage) {
+    console.log(`[ai] Token usage — input: ${data.usage.input_tokens}, output: ${data.usage.output_tokens}`);
+  }
 
   const rawText = data.content?.find((b) => b.type === "text")?.text?.trim();
 
   if (!rawText) {
+    console.error(`[ai] Empty response from Claude: ${JSON.stringify(data)}`);
     throw new Error(
       `Claude returned an empty response. Full response: ${JSON.stringify(data)}`
     );
   }
+
+  console.log(`[ai] Raw response: ${rawText.length} chars`);
 
   // Sanitise: strip wrapping quotes and any trailing ellipsis/suspension
   // Claude likes to end with "…" or "..." which makes tweets look like threads
@@ -191,6 +202,8 @@ export async function generateTweet(
 
   // Append the post URL and AI signature — always in code, never left to Claude
   const tweetText = `${fitted}\n\n${input.post.url}${signatureSuffix}`;
+
+  console.log(`[ai] Final tweet: ${tweetText.length} chars`);
 
   return {
     text: tweetText,

@@ -2,9 +2,13 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { env } from "cloudflare:test";
 import { postTweet } from "../twitter";
 
+// OAuth 1.0a test credentials (fake values — never real tokens)
 const testEnv = {
   ...env,
-  TWITTER_ACCESS_TOKEN: "test-oauth2-bearer-token",
+  TWITTER_API_KEY: "test-consumer-key",
+  TWITTER_API_SECRET: "test-consumer-secret",
+  TWITTER_ACCESS_TOKEN: "test-access-token",
+  TWITTER_ACCESS_TOKEN_SECRET: "test-access-token-secret",
 } as typeof env;
 
 afterEach(() => {
@@ -71,7 +75,7 @@ describe("postTweet", () => {
     expect(JSON.parse(options.body as string)).toEqual({ text: "My tweet text" });
   });
 
-  it("sends OAuth 2.0 Bearer Authorization header", async () => {
+  it("sends an OAuth 1.0a Authorization header", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ data: { id: "1", text: "t" } }),
@@ -80,6 +84,10 @@ describe("postTweet", () => {
     await postTweet(testEnv, "test");
     const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
     const headers = options.headers as Record<string, string>;
-    expect(headers["Authorization"]).toBe("Bearer test-oauth2-bearer-token");
+    // OAuth 1.0a headers start with "OAuth " and contain the consumer key
+    expect(headers["Authorization"]).toMatch(/^OAuth /);
+    expect(headers["Authorization"]).toContain('oauth_consumer_key="test-consumer-key"');
+    expect(headers["Authorization"]).toContain('oauth_token="test-access-token"');
+    expect(headers["Authorization"]).toContain("oauth_signature=");
   });
 });

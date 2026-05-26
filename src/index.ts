@@ -16,74 +16,80 @@ import type { Env } from "./types";
 // ── Core daily job ────────────────────────────────────────────────────────────
 
 async function runDailyJob(env: Env): Promise<string> {
-  const log: string[] = [];
+  // Emit each line immediately so Cloudflare Logs captures it even on crash,
+  // and also accumulate for the HTTP /run response body.
+  const lines: string[] = [];
+  const log = (line: string): void => {
+    lines.push(line);
+    console.log(line);
+  };
 
   // ── Step 1: discover the latest post ──────────────────────────────────────
-  log.push("🔍 [1/6] Fetching latest Farsi post URL…");
+  log("🔍 [1/6] Fetching latest Farsi post URL…");
   const latestUrl = await getLatestPostUrl(env);
-  log.push(`   ✓ URL: ${latestUrl}`);
+  log(`   ✓ URL: ${latestUrl}`);
 
   // ── Step 2: get or create the post record in D1 ───────────────────────────
-  log.push("🗄️  [2/6] Checking D1 for existing post…");
+  log("🗄️  [2/6] Checking D1 for existing post…");
   let post = await getPostByUrl(env, latestUrl);
 
   if (post) {
-    log.push(`   ✓ Already in DB (id=${post.id}) — skipping scrape`);
+    log(`   ✓ Already in DB (id=${post.id}) — skipping scrape`);
   } else {
-    log.push("   → New post — scraping full content via Firecrawl…");
+    log("   → New post — scraping full content via Firecrawl…");
     const { title, content } = await scrapePostContent(env, latestUrl);
-    log.push(`   → Scraped: "${title}" (${content.length} chars)`);
+    log(`   → Scraped: "${title}" (${content.length} chars)`);
     post = await savePost(env, { url: latestUrl, title, content });
-    log.push(`   ✓ Saved to D1 (id=${post.id})`);
+    log(`   ✓ Saved to D1 (id=${post.id})`);
   }
 
   // ── Step 3: load tweet history for this post ──────────────────────────────
-  log.push("📊 [3/6] Loading tweet history…");
+  log("📊 [3/6] Loading tweet history…");
   // Sent-only count drives the theme index (failed tweets don't advance the arc)
   const sentTweets = await getTweetsForPost(env, post.id);
   const themeIndex = sentTweets.length;
   // All tweets (sent + failed) go to Claude so it never repeats content
   const allTweets = await getAllTweetsForPost(env, post.id);
-  log.push(`   ✓ ${sentTweets.length} sent, ${allTweets.length - sentTweets.length} failed — theme index: ${themeIndex % 10}`);
+  log(`   ✓ ${sentTweets.length} sent, ${allTweets.length - sentTweets.length} failed — theme index: ${themeIndex % 10}`);
 
   // ── Step 4: generate a fresh tweet with Claude ────────────────────────────
-  log.push("🤖 [4/6] Generating tweet with Workers AI…");
-  log.push(`   → Model: ${(await import("./config")).CLAUDE_MODEL}`);
+  log("🤖 [4/6] Generating tweet with Claude AI…");
+  log(`   → Model: ${(await import("./config")).CLAUDE_MODEL}`);
   const generated = await generateTweet(env, {
     post,
     previousTweets: allTweets,   // full history so Claude avoids repeating
     themeIndex,                   // based on sent-only count
   });
-  log.push(`   ✓ Theme: ${generated.theme}`);
-  log.push(`   ✓ Length: ${generated.text.length} chars`);
-  log.push(`   ✓ Text: ${generated.text}`);
+  log(`   ✓ Theme: ${generated.theme}`);
+  log(`   ✓ Length: ${generated.text.length} chars`);
+  log(`   ✓ Text: ${generated.text}`);
 
   // ── Step 5: save tweet draft to D1 (before posting) ──────────────────────
-  log.push("💾 [5/6] Saving tweet draft to D1…");
+  log("💾 [5/6] Saving tweet draft to D1…");
   const draft = await saveTweetDraft(env, {
     post_id: post.id,
     tweet_text: generated.text,
     theme: generated.theme,
     theme_index: generated.themeIndex,
   });
-  log.push(`   ✓ Draft saved (id=${draft.id})`);
+  log(`   ✓ Draft saved (id=${draft.id})`);
 
   // ── Step 6: post to X, then update the draft record ──────────────────────
-  log.push("🐦 [6/6] Posting to X (Twitter)…");
-  log.push(`   → Access token prefix: ${env.TWITTER_ACCESS_TOKEN.slice(0, 10)}…`);
+  log("🐦 [6/6] Posting to X (Twitter)…");
+  log(`   → Access token prefix: ${env.TWITTER_ACCESS_TOKEN.slice(0, 10)}…`);
   try {
     const tweetId = await postTweet(env, generated.text);
     await markTweetSent(env, draft.id, tweetId);
-    log.push(`   ✓ Posted! tweet_id=${tweetId}`);
+    log(`   ✓ Posted! tweet_id=${tweetId}`);
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     await markTweetFailed(env, draft.id, errorMsg);
-    log.push(`   ✗ Failed to post: ${errorMsg}`);
-    log.push(`   → Draft id=${draft.id} marked as failed in DB`);
+    log(`   ✗ Failed to post: ${errorMsg}`);
+    log(`   → Draft id=${draft.id} marked as failed in DB`);
   }
-  log.push("✅ Done");
+  log("✅ Done");
 
-  return log.join("\n");
+  return lines.join("\n");
 }
 
 // ── Worker export ─────────────────────────────────────────────────────────────
@@ -91,10 +97,18 @@ async function runDailyJob(env: Env): Promise<string> {
 export default {
   // Called by the Cloudflare cron scheduler
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    console.log("[cron] Daily job starting…");
     ctx.waitUntil(
-      runDailyJob(env).then((summary) => {
-        console.log("[cron]\n" + summary);
-      })
+      runDailyJob(env)
+        .then(() => {
+          console.log("[cron] Daily job completed.");
+        })
+        .catch((err) => {
+          // Unhandled top-level error (e.g. scraper or DB failure before step 5)
+          const message = err instanceof Error ? err.message : String(err);
+          const stack = err instanceof Error && err.stack ? `\n${err.stack}` : "";
+          console.error(`[cron] ❌ Unhandled error: ${message}${stack}`);
+        })
     );
   },
 
@@ -109,16 +123,16 @@ export default {
     if (pathname === "/run") {
       // Simple auth: only allow in dev (no secret required) or pass ?secret=
       // In production add a proper bearer token check.
+      console.log("[manual] /run triggered");
       try {
         const summary = await runDailyJob(env);
-        console.log("[manual]\n" + summary);
         return new Response(summary, {
           headers: { "Content-Type": "text/plain; charset=utf-8" },
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const stack = err instanceof Error && err.stack ? `\n\nStack:\n${err.stack}` : "";
-        console.error("[manual] error:", message);
+        console.error(`[manual] ❌ Unhandled error: ${message}${stack}`);
         return new Response(`❌ Error: ${message}${stack}`, { status: 500, headers: { "Content-Type": "text/plain; charset=utf-8" } });
       }
     }

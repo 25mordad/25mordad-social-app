@@ -8,7 +8,11 @@ export interface Env {
   CLOUDFLARE_GATEWAY_ID: string;   // AI Gateway slug (e.g. "default")
   CLOUDFLARE_API_TOKEN: string;    // Cloudflare API token — sent as cf-aig-authorization
   FIRECRAWL_API_KEY: string;
-  TWITTER_ACCESS_TOKEN: string;  // OAuth 2.0 user-context token (expires ~2h, regenerate in X Dev Portal)
+  // OAuth 1.0a credentials — these never expire (unless revoked in the X Dev Portal)
+  TWITTER_API_KEY: string;              // Consumer Key  (App Settings → Keys and Tokens)
+  TWITTER_API_SECRET: string;           // Consumer Secret
+  TWITTER_ACCESS_TOKEN: string;         // Access Token  (your account, not the app)
+  TWITTER_ACCESS_TOKEN_SECRET: string;  // Access Token Secret
 }
 
 // ── Database row shapes ───────────────────────────────────────────────────────

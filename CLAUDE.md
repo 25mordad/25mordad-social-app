@@ -4,7 +4,7 @@
 A **Cloudflare Worker** that runs once a day (05:30 UTC = 09:00 Tehran):
 1. Scrapes the latest **Farsi** post from `https://25mordad.com/PanorAIma/` via Firecrawl
 2. Generates a **Farsi tweet** using Claude via Cloudflare AI Gateway (BYOK)
-3. Posts it to **X (Twitter)** via OAuth 2.0 Bearer token
+3. Posts it to **X (Twitter)** via OAuth 1.0a (permanent credentials, never expire)
 
 Each post gets a 10-tweet arc over 10 days, one theme per day (`hook → key_insight → … → wrap_up`). Every tweet ends with `#هوشنوشت` and the post URL.
 
@@ -40,7 +40,7 @@ src/
   config.ts   — SITE_INDEX_URL, CLAUDE_MODEL, TWEET_THEMES (10-theme array)
   scraper.ts  — Firecrawl: find latest -fa URL, scrape full content
   ai.ts       — Claude tweet generation via Cloudflare AI Gateway
-  twitter.ts  — X API v2 posting with OAuth 2.0 Bearer token
+  twitter.ts  — X API v2 posting with OAuth 1.0a (HMAC-SHA1 via Web Crypto)
   db.ts       — D1 helpers: posts + tweets CRUD
   types.ts    — Env, Post, Tweet, TweetGenerationInput, etc.
 ```
@@ -75,10 +75,12 @@ src/
 - Tweet cost on X Pay Per Use: **$0.200** (tweet with URL) vs $0.015 (no URL)
 
 ### X API auth (twitter.ts)
-- Uses **OAuth 2.0 Bearer token** (`Authorization: Bearer {token}`)
-- Token is a user-context token generated in X Developer Portal → Keys & Tokens → Access Token
-- Token **expires ~2 hours** — regenerate manually when it expires
-- Only needs `TWITTER_ACCESS_TOKEN` in env (no consumer key/secret needed)
+- Uses **OAuth 1.0a** — credentials never expire (unlike OAuth 2.0 bearer tokens which die in ~2h)
+- Signing: HMAC-SHA1 via Web Crypto (`crypto.subtle`) — no external libs needed
+- JSON request bodies are **not** included in the OAuth signature base string (only the oauth_* params + URL are signed — this is correct per RFC 5849 §3.4.1)
+- In X Developer Portal → your app → Keys and Tokens, generate:
+  - **Consumer Key / Secret** → `TWITTER_API_KEY` / `TWITTER_API_SECRET`  
+  - **Access Token / Secret** (under "Authentication Tokens", for your own account) → `TWITTER_ACCESS_TOKEN` / `TWITTER_ACCESS_TOKEN_SECRET`
 
 ### Farsi-only filter (scraper.ts)
 - Only posts whose URL ends in `-fa` or `-fa/` are considered
@@ -106,7 +108,10 @@ Set via `wrangler secret put <KEY>` in production; `.dev.vars` locally (gitignor
 | `CLOUDFLARE_GATEWAY_ID` | AI Gateway slug (e.g. `default`) |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare token with AI Gateway permission |
 | `FIRECRAWL_API_KEY` | Firecrawl API key |
-| `TWITTER_ACCESS_TOKEN` | OAuth 2.0 user-context token (expires ~2h, regenerate in X Dev Portal) |
+| `TWITTER_API_KEY` | OAuth 1.0a Consumer Key (X Dev Portal → app → Keys and Tokens) |
+| `TWITTER_API_SECRET` | OAuth 1.0a Consumer Secret |
+| `TWITTER_ACCESS_TOKEN` | OAuth 1.0a Access Token (for your account) |
+| `TWITTER_ACCESS_TOKEN_SECRET` | OAuth 1.0a Access Token Secret |
 
 ---
 
