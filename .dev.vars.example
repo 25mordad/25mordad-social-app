@@ -17,8 +17,13 @@ CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
 # ── Firecrawl ─────────────────────────────────────────────────────────────────
 FIRECRAWL_API_KEY=your_firecrawl_api_key_here
 
-# ── X / Twitter ───────────────────────────────────────────────────────────────
-# OAuth 2.0 user-context access token — generated in X Developer Portal:
-# App → Keys & Tokens → Access Token (Generate)
-# ⚠️  Expires after ~2 hours — regenerate when expired
+# ── X / Twitter (OAuth 1.0a — credentials never expire) ──────────────────────
+# All four values are in X Developer Portal → your app → Keys and Tokens
+#
+# Consumer Keys section:
+TWITTER_API_KEY=your_twitter_api_key_here
+TWITTER_API_SECRET=your_twitter_api_secret_here
+#
+# Authentication Tokens section (must be Read and Write):
 TWITTER_ACCESS_TOKEN=your_twitter_access_token_here
+TWITTER_ACCESS_TOKEN_SECRET=your_twitter_access_token_secret_here
