@@ -61,24 +61,22 @@ describe("fitToTwitterLimit", () => {
     expect(result).not.toContain("#");
   });
 
-  it("trims body with ellipsis when nothing fits", () => {
+  it("trims body cleanly (no ellipsis) when nothing fits", () => {
     const text = "این یک متن خیلی خیلی خیلی طولانی است";
     const result = fitToTwitterLimit(text, 10);
     expect(result.length).toBeLessThanOrEqual(10);
-    expect(result).toMatch(/…$/);
+    expect(result).not.toContain("…");
   });
 
-  it("cuts at a word boundary: the prefix before '…' is a complete word(s)", () => {
-    // "first second third" → cut at 15 → "first second…" (13 chars ≤ 15)
+  it("cuts at a word boundary without adding ellipsis", () => {
+    // "first second third" → cut at 15 → "first second" (12 chars ≤ 15)
     const text = "first second third";
     const result = fitToTwitterLimit(text, 15);
     expect(result.length).toBeLessThanOrEqual(15);
-    expect(result).toMatch(/…$/);
-    // The part before "…" should be a prefix of the original ending at a word boundary
-    const prefix = result.slice(0, -1); // strip "…"
-    expect(text.startsWith(prefix)).toBe(true);
-    // No trailing space (we trimmed it)
-    expect(prefix).not.toMatch(/ $/);
+    expect(result).not.toContain("…");
+    // Result should be a clean word-boundary prefix of the original
+    expect(text.startsWith(result)).toBe(true);
+    expect(result).not.toMatch(/ $/);
   });
 });
 

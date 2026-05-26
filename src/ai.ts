@@ -25,8 +25,8 @@ const SYSTEM_PROMPT = `تو یه نویسنده خلاق و صمیمی هستی 
 - زبان: فارسی محاوره‌ای روان — نه ادبی، نه خشک، نه خبری
 - هرگز عنوان مطلب رو نگو — ایده‌ها رو مستقیم بیان کن
 - هرگز بگو «در مطلب جدید» یا «در این پست» — انگار خودت داری فکر می‌کنی
-- طول متن اصلی: حداکثر ۲۳۰ کاراکتر
-- هشتگ: ۱ تا ۲ هشتگ فارسی کوتاه و مرتبط در انتها
+- طول متن اصلی (بدون هشتگ): حداکثر ۱۹۰ کاراکتر
+- هشتگ: ۱ تا ۲ هشتگ فارسی کوتاه و مرتبط — در یه خط جداگانه بعد از متن اصلی
 - هرگز لینک اضافه نکن
 - توییت باید با یه جمله کامل تموم بشه — هرگز با «...» یا «…» ختم نشه
 - خروجی: فقط متن توییت — بدون توضیح، بدون پیشگفتار`;
@@ -78,7 +78,8 @@ ${arcContext}
 - هیچ‌کدام از توییت‌های قبلی رو تکرار نکنه
 - عنوان مطلب رو مستقیم نگه نداشته باشه
 - حس بده یه آدم واقعی داره این رو می‌گه، نه یه ربات خبری
-- متن اصلی حداکثر ۲۳۰ کاراکتر، ۱-۲ هشتگ فارسی کوتاه در آخر
+- متن اصلی (بدون هشتگ) حداکثر ۱۹۰ کاراکتر
+- هشتگ‌ها در یه خط جداگانه بعد از متن بنویس، مثلاً:\n  متن متن متن\n  #ایران #تاریخ
 
 فقط متن توییت رو بنویس:`.trim();
 
@@ -112,11 +113,11 @@ export function fitToTwitterLimit(text: string, maxLen: number): string {
     hashtags = hashtags.slice(0, -1);
   }
 
-  // No hashtags left — trim body at last word boundary
-  if (body.length > maxLen - 1) {
-    const cut = body.substring(0, maxLen - 1);
+  // No hashtags left — trim body at last word boundary (no … — prompt bans it)
+  if (body.length > maxLen) {
+    const cut = body.substring(0, maxLen);
     const lastSpace = cut.lastIndexOf(" ");
-    body = (lastSpace > 0 ? cut.substring(0, lastSpace) : cut) + "…";
+    body = lastSpace > 0 ? cut.substring(0, lastSpace) : cut;
   }
 
   return body;
