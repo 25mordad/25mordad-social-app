@@ -2,6 +2,7 @@
 export interface Env {
   // Cloudflare bindings
   DB: D1Database;
+  TEASER_QUEUE: Queue<TeaserQueueMessage>;
 
   // Secrets (set via wrangler secret put)
   CLOUDFLARE_ACCOUNT_ID: string;   // Cloudflare account ID
@@ -13,6 +14,11 @@ export interface Env {
   TWITTER_API_SECRET: string;           // Consumer Secret
   TWITTER_ACCESS_TOKEN: string;         // Access Token  (your account, not the app)
   TWITTER_ACCESS_TOKEN_SECRET: string;  // Access Token Secret
+  // OpenAI
+  OPENAI_API_KEY: string;
+  // Instagram Graph API (requires Professional account)
+  INSTAGRAM_ACCESS_TOKEN: string;       // Long-lived user token (60-day expiry)
+  INSTAGRAM_USER_ID: string;            // Numeric Instagram account ID
 }
 
 // ── Database row shapes ───────────────────────────────────────────────────────
@@ -60,4 +66,21 @@ export interface TweetGenerationResult {
   text: string;
   theme: string;
   themeIndex: number;
+}
+
+// ── Teaser Queue ──────────────────────────────────────────────────────────────
+export interface TeaserQueueMessage {
+  postId: number;
+  teaserIndex: number; // 0, 1, or 2
+}
+
+export interface TeaserGenerationInput {
+  teaserContent: { title: string; content: string };
+  teaserIndex: number;
+}
+
+export interface TeaserGenerationResult {
+  text: string;
+  theme: string;
+  teaserIndex: number;
 }

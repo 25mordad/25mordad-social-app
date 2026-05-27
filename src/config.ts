@@ -1,6 +1,11 @@
 // ── Site config ───────────────────────────────────────────────────────────────
 export const SITE_INDEX_URL = "https://25mordad.com/PanorAIma/";
 
+// ── Teaser page (always points to the next upcoming article) ──────────────────
+export const TEASER_URL = "https://25mordad.com/PanorAIma/next/";
+// Article arc theme index at which teaser tweets begin (0-based, so after 7 sent tweets)
+export const TEASER_STARTS_AT = 7;
+
 // ── Cloudflare Workers AI model ───────────────────────────────────────────────
 export const CLAUDE_MODEL = "claude-sonnet-4-5";
 
@@ -81,3 +86,30 @@ export const TWEET_THEMES = [
 ] as const;
 
 export type ThemeKey = (typeof TWEET_THEMES)[number]["key"];
+
+// ── 3-day teaser tweet arc (runs days 8–10 alongside the main arc) ────────────
+export const TEASER_THEMES = [
+  {
+    index: 0,
+    key: "teaser_hook",
+    label: "معرفی موضوع بعدی",
+    direction:
+      "موضوع مطلب بعدی رو به شکل جذاب معرفی کن — کنجکاوی ایجاد کن بدون اینکه همه چیز رو لو بدی.",
+  },
+  {
+    index: 1,
+    key: "teaser_question",
+    label: "سوال از مخاطبان",
+    direction:
+      "یک سوال تفکربرانگیز درباره موضوع مطلب بعدی بپرس — چیزی که مخاطبان رو وادار کنه نظرشون رو بگن.",
+  },
+  {
+    index: 2,
+    key: "teaser_invite",
+    label: "دعوت به مشارکت",
+    direction:
+      "مستقیماً از مخاطبان بخواه تجربه یا دیدگاهشون رو درباره موضوع مطلب بعدی به اشتراک بذارن — بگو که نظرشون در مطلب به کار میاد.",
+  },
+] as const;
+
+export type TeaserThemeKey = (typeof TEASER_THEMES)[number]["key"];

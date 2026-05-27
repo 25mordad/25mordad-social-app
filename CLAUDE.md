@@ -112,6 +112,9 @@ Set via `wrangler secret put <KEY>` in production; `.dev.vars` locally (gitignor
 | `TWITTER_API_SECRET` | OAuth 1.0a Consumer Secret |
 | `TWITTER_ACCESS_TOKEN` | OAuth 1.0a Access Token (for your account) |
 | `TWITTER_ACCESS_TOKEN_SECRET` | OAuth 1.0a Access Token Secret |
+| `OPENAI_API_KEY` | OpenAI API key for gpt-image-2 image generation |
+| `INSTAGRAM_ACCESS_TOKEN` | Instagram Graph API long-lived user token (60-day expiry) |
+| `INSTAGRAM_USER_ID` | Instagram Professional account numeric ID |
 
 ---
 

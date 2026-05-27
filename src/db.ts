@@ -108,6 +108,24 @@ export async function markTweetSent(
 }
 
 /**
+ * Returns true if a teaser tweet with the given theme was already sent for this post.
+ * Used for idempotency in the queue handler (queues deliver at-least-once).
+ */
+export async function isTeaserAlreadySent(
+  env: Env,
+  postId: number,
+  theme: string
+): Promise<boolean> {
+  const result = await env.DB.prepare(
+    "SELECT id FROM tweets WHERE post_id = ? AND theme = ? AND tweet_id IS NOT NULL LIMIT 1"
+  )
+    .bind(postId, theme)
+    .first<{ id: number }>();
+
+  return result !== null;
+}
+
+/**
  * Marks a draft tweet as failed by recording the error message.
  */
 export async function markTweetFailed(

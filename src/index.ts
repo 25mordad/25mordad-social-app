@@ -7,11 +7,12 @@
  *             GET /run     — manual trigger (useful during dev / testing)
  */
 
-import { generateTweet } from "./ai";
-import { getPostByUrl, getTweetsForPost, getAllTweetsForPost, savePost, saveTweetDraft, markTweetSent, markTweetFailed } from "./db";
+import { generateTweet, generateTeaserTweet } from "./ai";
+import { getPostByUrl, getTweetsForPost, getAllTweetsForPost, savePost, saveTweetDraft, markTweetSent, markTweetFailed, isTeaserAlreadySent } from "./db";
 import { getLatestPostUrl, scrapePostContent } from "./scraper";
 import { postTweet } from "./twitter";
-import type { Env } from "./types";
+import { TEASER_STARTS_AT, TEASER_URL } from "./config";
+import type { Env, TeaserQueueMessage } from "./types";
 
 // ── Core daily job ────────────────────────────────────────────────────────────
 
@@ -87,9 +88,66 @@ async function runDailyJob(env: Env): Promise<string> {
     log(`   ✗ Failed to post: ${errorMsg}`);
     log(`   → Draft id=${draft.id} marked as failed in DB`);
   }
+
+  // ── Step 7: enqueue teaser tweet (days 8–10 of the arc, delayed 3 hours) ──
+  if (themeIndex >= TEASER_STARTS_AT) {
+    const teaserIndex = themeIndex - TEASER_STARTS_AT; // 0, 1, or 2
+    log(`📬 [7/7] Enqueuing teaser tweet (index ${teaserIndex}) with 3h delay…`);
+    await env.TEASER_QUEUE.send(
+      { postId: post.id, teaserIndex },
+      { delaySeconds: 3 * 60 * 60 }
+    );
+    log(`   ✓ Teaser job queued — will fire ~3 hours from now`);
+  }
+
   log("✅ Done");
 
   return lines.join("\n");
+}
+
+// ── Teaser job (triggered by Queue, 3 hours after the main tweet) ─────────────
+
+async function runTeaserJob(env: Env, message: TeaserQueueMessage): Promise<void> {
+  const { postId, teaserIndex } = message;
+  const themeKey = `teaser_${teaserIndex}`;
+
+  console.log(`[teaser] Starting teaser job — postId=${postId}, index=${teaserIndex}`);
+
+  // Idempotency: queue delivers at-least-once — skip if already sent
+  if (await isTeaserAlreadySent(env, postId, themeKey)) {
+    console.log(`[teaser] Already sent (theme=${themeKey}) — skipping`);
+    return;
+  }
+
+  // Scrape the teaser page fresh each time (content changes per upcoming article)
+  console.log(`[teaser] Scraping teaser page: ${TEASER_URL}`);
+  const teaserContent = await scrapePostContent(env, TEASER_URL);
+  console.log(`[teaser] Scraped — title: "${teaserContent.title}", ${teaserContent.content.length} chars`);
+
+  // Generate teaser tweet with Claude
+  const generated = await generateTeaserTweet(env, { teaserContent, teaserIndex });
+  console.log(`[teaser] Generated — theme: ${generated.theme}, ${generated.text.length} chars`);
+
+  // Save draft before posting
+  const draft = await saveTweetDraft(env, {
+    post_id: postId,
+    tweet_text: generated.text,
+    theme: generated.theme,
+    theme_index: 10 + generated.teaserIndex, // 10, 11, 12 — outside the 0–9 main arc
+  });
+  console.log(`[teaser] Draft saved (id=${draft.id})`);
+
+  // Post to X
+  try {
+    const tweetId = await postTweet(env, generated.text);
+    await markTweetSent(env, draft.id, tweetId);
+    console.log(`[teaser] ✓ Posted! tweet_id=${tweetId}`);
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    await markTweetFailed(env, draft.id, errorMsg);
+    console.error(`[teaser] ✗ Failed to post: ${errorMsg}`);
+    throw err; // rethrow so Queue retries
+  }
 }
 
 // ── Worker export ─────────────────────────────────────────────────────────────
@@ -110,6 +168,20 @@ export default {
           console.error(`[cron] ❌ Unhandled error: ${message}${stack}`);
         })
     );
+  },
+
+  // Called by Cloudflare Queue when a teaser job is delivered (~3h after enqueue)
+  async queue(batch: MessageBatch<TeaserQueueMessage>, env: Env): Promise<void> {
+    for (const message of batch.messages) {
+      try {
+        await runTeaserJob(env, message.body);
+        message.ack();
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error(`[queue] ❌ Teaser job failed: ${errorMsg} — will retry`);
+        message.retry();
+      }
+    }
   },
 
   // HTTP handler for health checks and manual triggers

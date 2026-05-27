@@ -17,3 +17,15 @@ database_id = "YOUR_D1_DATABASE_ID"
 # ── Cron: every day at 05:30 UTC = 09:00 Tehran (UTC+3:30) ───────────────────
 [triggers]
 crons = ["30 5 * * *"]
+
+# ── Cloudflare Queue: teaser tweets (delayed 3h after main tweet) ────────────
+# Create the queue first: npx wrangler queues create teaser-jobs
+[[queues.producers]]
+binding = "TEASER_QUEUE"
+queue = "teaser-jobs"
+
+[[queues.consumers]]
+queue = "teaser-jobs"
+max_batch_size = 1
+max_batch_timeout = 0
+max_retries = 3
